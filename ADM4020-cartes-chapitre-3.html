@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cartes mémoire — Dirigeant responsable AMF</title>
+<style>
+:root {
+  --bg: #f4f7fb;
+  --card: #ffffff;
+  --text: #172033;
+  --muted: #1858b8;
+  --accent: #1e72d1;
+  --accent2: #2a1ddd;
+  --shadow: 0 12px 35px rgba(31, 41, 55, .12);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 28px 18px 40px;
+}
+h1 { text-align:center; margin: 0 0 8px; font-size: 28px; }
+.subtitle { text-align:center; color:var(--muted); margin-bottom:24px; }
+.counter { text-align:center; color:var(--muted); margin-bottom:18px; font-size:14px; }
+.success-panel { position: sticky; top: 0; z-index: 30; background: rgba(244,247,251,.96); backdrop-filter: blur(8px); padding: 12px 0 14px; margin: 0 0 18px; }
+.success-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; max-width:560px; margin:0 auto 8px; font-size:14px; font-weight:bold; }
+.success-percent { color:#19c909; font-size:22px; font-weight:800; }
+.success-track { max-width:560px; height:10px; margin:0 auto 7px; background:#fecaca; border-radius:999px; overflow:hidden; }
+.success-fill { height:100%; width:100%; background:#20ca4b; border-radius:999px; transition:width .25s ease; }
+.success-details { text-align:center; color:var(--muted); font-size:12px; }
+.grid { display:flex; flex-direction:column; gap:16px; }
+.card-wrap {
+  perspective: 1200px;
+  height: 190px;
+  cursor: pointer;
+}
+.card {
+  width:100%; height:100%;
+  position:relative;
+  transform-style:preserve-3d;
+  transition: transform .6s ease;
+}
+.card.flipped { transform:rotateY(180deg); }
+.face {
+  position:absolute; inset:0;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  background:var(--card);
+  border-radius:18px;
+  box-shadow:var(--shadow);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:28px;
+  font-size:20px;
+  line-height:1.45;
+}
+.front { border-top:5px solid var(--accent); }
+.back {
+  transform:rotateY(180deg);
+  border-top:5px solid #310123;
+  font-size:18px;
+}
+.hint {
+  position:absolute; bottom:10px; left:0; right:0;
+  text-align:center; font-size:12px; color:var(--muted);
+}
+button {
+  display:block;
+  margin:30px auto 0;
+  border:0;
+  border-radius:999px;
+  padding:14px 30px;
+  background:var(--accent);
+  color:white;
+  font-size:17px;
+  font-weight:bold;
+  cursor:pointer;
+  box-shadow:0 8px 20px rgba(49,94,251,.25);
+}
+button:hover { background:var(--accent2); }
+
+.card-wrap { position: relative; }
+.card-wrap.marked .face { border: 3px solid #e53935 !important; }
+.card-wrap.marked .front { border-top: 5px solid #e53935 !important; }
+.mark-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #b71c1c;
+  background: #e53935;
+  padding: 0;
+  margin: 0;
+  z-index: 20;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,.18);
+}
+.mark-btn:hover { background: #c62828; }
+.mark-btn.marked { background: #8b0000; }
+
+/* Bulle flottante des cartes d'erreurs */
+.error-bubble {
+  position: fixed; right: 22px; bottom: 22px; z-index: 1000;
+  width: 62px; height: 62px; border-radius: 50%; margin: 0; padding: 0;
+  background: #e53935; color: #fff; border: 3px solid #fff;
+  box-shadow: 0 5px 18px rgba(0,0,0,.25); font-size: 25px;
+  display: flex; align-items: center; justify-content: center;
+}
+.error-bubble:hover { background: #c62828; }
+.error-badge {
+  position: absolute; top: -6px; right: -5px; min-width: 25px; height: 25px;
+  padding: 0 6px; border-radius: 999px; background: #172033; color: white;
+  border: 2px solid white; font-size: 13px; line-height: 21px; text-align: center;
+}
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 1100;
+  background: rgba(15, 23, 42, .62); padding: 24px;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.error-modal {
+  width: min(850px, 100%); max-height: 88vh; overflow-y: auto;
+  background: var(--bg); border-radius: 18px; padding: 24px; position: relative;
+  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+}
+.modal-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-right: 42px; }
+.modal-header h2 { margin: 0 0 18px; font-size: 22px; }
+.close-modal {
+  position: absolute; top: 12px; right: 12px; margin: 0; width: 38px; height: 38px;
+  padding: 0; border-radius: 50%; background: #e5e7eb; color: #172033; font-size: 25px;
+  box-shadow: none;
+}
+.close-modal:hover { background: #cbd5e1; }
+.error-list { display: flex; flex-direction: column; gap: 14px; }
+.error-card { position: relative; min-height: 145px; background: white; border: 2px solid #e53935;
+  border-top: 5px solid #e53935; border-radius: 14px; padding: 24px 48px 24px 20px;
+  box-shadow: var(--shadow); cursor: pointer; white-space: pre-wrap; line-height: 1.45; }
+.error-card .answer { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e5e7eb; }
+.error-card.flipped .answer { display: block; }
+.unmark-btn {
+  position: absolute; top: 8px; right: 8px; margin: 0; padding: 0; width: 20px; height: 20px;
+  min-width: 20px; border-radius: 50%; border: 2px solid #0759b7; background: #1e72d1;
+  box-shadow: 0 2px 5px rgba(0,0,0,.18); z-index: 2;
+}
+.unmark-btn:hover { background: #084f9e; }
+.empty-errors { text-align: center; color: var(--muted); padding: 28px 12px; }
+@media (max-width:600px) {
+  .error-bubble { right: 14px; bottom: 14px; width: 56px; height: 56px; }
+  .modal-overlay { padding: 10px; } .error-modal { padding: 18px 12px; max-height: 92vh; }
+  .modal-header h2 { font-size: 19px; }
+}
+
+@media (max-width:600px) {
+  .card-wrap { height:220px; }
+  .face { font-size:18px; padding:22px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📚 ADM1015 Chapitres 1 à 3</h1>
+  <div class="subtitle">Clique sur une question pour voir la réponse. Reclique pour revenir à la question.</div>
+  <div class="success-panel" aria-live="polite">
+    <div class="success-heading"><span>✅ Taux de réussite</span><span id="successPercent" class="success-percent">100 %</span></div>
+    <div class="success-track" role="progressbar" aria-label="Taux de réussite" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="successFill" class="success-fill"></div></div>
+    <div id="successDetails" class="success-details">0 carte en rouge · 0 carte réussie sur 0</div>
+  </div>
+  <div class="counter"><span id="count">0</span> cartes</div>
+  <div id="cards" class="grid"></div>
+  <button id="shuffleBtn">🔀 Mélanger</button>
+</div>
+
+<button id="errorBubble" class="error-bubble" type="button" aria-label="Afficher les cartes d'erreurs" title="Afficher les cartes d'erreurs">
+  ⚑ <span id="errorBadge" class="error-badge">0</span>
+</button>
+
+<div id="errorModalOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="errorModalTitle">
+  <div class="error-modal">
+    <button id="closeErrorModal" class="close-modal" type="button" aria-label="Fermer">×</button>
+    <div class="modal-header"><h2 id="errorModalTitle">🔴 Mes cartes d'erreurs (<span id="modalErrorCount">0</span>)</h2></div>
+    <div id="errorCardsList" class="error-list"></div>
+  </div>
+</div>
+
+<script>
+const originalCards = [
+{
+    q: "Quelles sont les méthodes d’évaluation de la performance?",
+    a: "1) Méthodes d’évaluations axées sur les résultats, 2) Méthodes d’évaluations axées sur les comportements, 3) Les autres approches d’évaluation."
+  },{
+    q: "Quelles sont les sous-sections des autres approches d’évaluation des méthodes d’évaluation de la performance?",
+    a: "1) L’approche par compétences, 2) l’approche comparative, 3) l’approche par matrice."
+  },{
+    q: "Quelles sont les sous-sections de l’approche comparative?",
+    a: "1) Méthode de la distribution forcée, 2) Méthode du rangement."
+  },{
+    q: "Quelles sont les sous-sections de la méthode du rangement?",
+    a: "1) rangement simple, 2) rangement en alternance, 3) comparaison par paires."
+  },{
+    q: "Quelles sont les méthodes d’évaluations axées sur les résultats?",
+    a: "1) Méthode quantitative, 2) méthode d’évaluation par objectifs."
+  },{
+    q: "Quelles sont les sous-sections de la méthode d’évaluation par objectifs qui décortiquent le fonctionnement de cette méthode?",
+    a: "1) Processus d’évaluation par objectif, 2) conditions de succès de l’évaluation par objectifs."
+  },{
+    q: "Quelles sont les méthodes axées sur le comportement?",
+    a: "1) Les échelles graphiques de notation, 2) les échelles à comportement ancrés, 3) les échelles d’observation des comportements 4)+les listes de contrôle."
+  },{
+    q: "Qu’est-ce que la méthode quantitative?",
+    a: "Évaluée en fonction du nombre (unités, taux, %, coûts, etc.)."
+  },{
+    q: "Nomme des avantages et désavantages de la méthode quantitative?",
+    a: "Avantages : simple, rapide, économique et si plusieurs évaluateurs ils arriveront exactement au même constat. Désavantages : Pas de rétroaction pour que l’employé s’améliore, et ça ne tient pas compte de l’environnement qui peut influencer donc la mesure ne reflète peut-être pas la réelle performance."
+  },{
+    q: "Qu’est-ce que la méthode d’évaluation par objectifs?",
+    a: "L’employé et le superviseur déterminent ensemble les objectifs."
+  },{
+    q: "Nomme des avantages et désavantages de la méthode d’évaluation par objectifs?",
+    a: "Avantages : Objectifs individuels qui favorise l’acceptation des objectifs par employés donc il comprend son rôle et son travail. Désavantages : Requiert plus de temps, et l’employé risque de concentrer ses efforts sur les objectifs et d’ignorer les autres aspects du travail."
+  },{
+    q: "Quelles sont les 3 étapes du processus d’évaluation par objectifs?",
+    a: "1) Cibler zone de résultats clés=déterminer les tâches que l’employé doit s’améliorer, 2) Formuler les objectifs individuels=pour chaque tâche quels sont les objectifs attendus, 3) Déterminer les indicateurs de performance clés=comment saurons-nous si les objectifs ont été atteints."
+  },{
+    q: "Comment pouvons-nous savoir que l’objectif a été atteint avec succès?",
+    a: "Doit être ‘’SMART’’."
+  },{
+    q: "Que signifie SMART?",
+    a: "S=spécifique M=mesurable A=aligné R=réaliste T=temporel on doit être précis et ne pas être vague ex ‘’augmenter le volume de ventes’’ n’est PAS SMART, pour l’être ça devrait être ‘’augmenter de 5% les ventes sur le territoire du sud-ouest d’ici la fin de l’année’’."
+  },{
+    q: "Pourquoi le modèle SMART est intéressant pour l'entreprise?",
+    a: "Car c'est un outil qui permet au gestionnaire d'améliorer la formulation des objectifs de leurs employés afin qu'ils soient plus efficaces, et ça aide les employés à prendre une part plus active dans la formation des objectifs."
+  },{
+    q: "Vrai ou faux; Un objectif peut ne pas être Pertinente du point de vue de l'atteinte des priorités organisationnelles mais tout de même être SMART?",
+    a: "Vrai."
+  },{
+    q: "Comment est-ce que le gestionnaire peut s'assurer de la progression des objectifs tout au long de l'année?",
+    a: "1) coacher les employés qui éprouvent des difficultés à atteindre leurs objectifs, 2) proposer de nouveaux objectifs s'il constate que certains employés progressent plus rapidement que prévu, 3) revoir les objectifs en fonction du contexte."
+  },{
+    q: "Que signifie les méthodes axées sur le comportement?",
+    a: "Ce sont des méthodes d’évaluation de la performance qui ne ciblent pas le ‘’quoi’’ mais plutôt le ‘’comment’’ et elles ne sont pas individualisées."
+  },{
+    q: "Quelles sont les 3 grands types d’échelles de la méthode axées sur les comportements?",
+    a: "1) Échelle graphique de NOTATION, 2) échelle à COMPORTEMENTS ANCRÉS, 3) Échelle d’OBSERVATION DES COMPORTEMENTS."
+  },{
+    q: "Nomme un synonyme d’échelle de notation?",
+    a: "Échelle graphique de notation."
+  },{
+    q: "Qu'est-ce que l'échelle graphique de notation?",
+    a: "C'est la plus courante on donne une note de 1 à 4 dans un formulaire/questionnaire pour identifier une/la réponse (ex : qualité du travail, note entre 1 et 4) rempli par des évaluateurs."
+  },{
+    q: "Qu'est-ce que l'échelle à comportement ancrés?",
+    a: "Plus exigeante en temps et ressources, on donne une note d'un chiffre de 1 à 3, mais chaque chiffre a une description représentative donc ça illustre un peu plus clairement."
+  },{
+    q: "Pour l'échelle de comportements ancrés qui participent au développement des phrases ancrées pour chaque point?",
+    a: "Gestionnaires, employés et professionnels RH."
+  },{
+    q: "Qu'est-ce que l'échelle d'observation des comportements?",
+    a: "C'est plus simple à développer que les 2 autres types d'échelles, ça permet d'offrir une rétroaction plus riche aux employés pouvant favoriser le développement et l'amélioration de la performance donc une meilleure validité. On a les descriptions des tâches du poste puis une sélection à faire entre 1 à 5 (1 = jamais et 5 = toujours)."
+  },{
+    q: "Qu'est-ce que les listes de contrôle?",
+    a: "Sous les méthodes axées sur le comportement, méthode rarement utilisée ça fournit la liste de comportements des tâches qui doivent être remplies par le titulaire de poste ce que l'on évaluera par oui ou non la performance de l'employé sera déterminée selon le nombre de crochets dans la case positive. (Pour les postes qui requièrent que toutes les tâches soient effectuées) la liste de contrôle et sur une échelle binaire (Oui ou Non)."
+  },{
+    q: "Nomme un synonyme de la méthode d'évaluation par compétences?",
+    a: "L'approche par compétences."
+  },{
+    q: "Qu'est-ce que la méthode d'évaluation par compétences/l'approche par compétences?",
+    a: "Listes qui ressemblent à la liste de contrôle sauf que celle-ci est beaucoup plus détaillée, au lieu de cocher ‘’oui ou non’’ on a plutôt une grande description des compétences (qu’on appelle ‘’énoncés comportementaux’’) avec une échelle de 5 options entre ‘’ non atteinte’’ et ‘’ largement dépassé’’."
+  },{
+    q: "Quel est le synonyme de méthode comparative?",
+    a: "L'approche comparative."
+  },{
+    q: "Qu'est-ce que la méthode comparative/l'approche comparative?",
+    a: "Cherche à comparer les performances des employés entre elles."
+  },{
+    q: "Quelles sont les 2 principales méthodes de la méthode de l'approche comparative?",
+    a: "1) méthode du rangement, 2) méthode de distribution forcée, 3) l'approche par matrice (très rarement)."
+  },{
+    q: "Que signifie la méthode du rangement?",
+    a: "Comparer les employés d'une même équipe les uns par rapport aux autres et à les ordonner selon leur niveau de performance globale."
+  },{
+    q: "À quel endroit se positionne la méthode du rangement par rapport aux schéma hiérarchique des méthodes?",
+    a: "Faisant partie des ‘’autres types de méthodes d’évaluation’’ sous ‘’l’approche comparative’’."
+  },{
+    q: "Quelles sont les 2 sous-catégories de l’approche comparative?",
+    a: "1) Méthode du rangement, 2) Méthode de la distribution forcée."
+  },{
+    q: "Quelles sont les 3 sous-catégories de méthode du rangement (variantes de la méthode du rangement)?",
+    a: "Rangement simple, rangement en alternance, comparaison des paires."
+  },{
+    q: "Quelles sont les différences entre rangement simple, rangement en alternance vs comparaison par pairs?",
+    a: "1)Rangement simple=comparer employés entre eux sur base performance globale du + au – performant. 2)Rangement en alternance=classer du + au – performant classant d’abord le meilleur et le pire puis répéter ainsi. 3) =Comparaison par paires=classer par équipe de 2, tester toutes les combinaisons puis on les classe en ordre du meilleur qui a le + de points."
+  },{
+    q: "Qu’est-ce que la méthode de distribution forcée?",
+    a: "Méthode par laquelle l'employeur place par tri tous les employés selon la formule en 3 parties ‘’10% les - performants’’, ‘’70% moyen’’ et ‘’10% les + performants’’  il doit donc obligatoirement placer 10% de ses employés dans la catégorie inférieure et 10% dans supérieure, ce qui peut être injuste donc c’est moins bon et employés risquent de prendre décisions moins éthiques pour gagner."
+  },{
+    q: "Qu’est-ce que l’approche par matrice?",
+    a: "Tableau des objectifs/résultats atteindre versus comportement adopté. Consiste à positionner un employé plutôt que de lui attribuer une cote de performance, on se concentre sur l'amélioration des forces et visualisation claires des déséquilibres."
+  },{
+    q: "Définissez la méthode d'évaluation basée sur les résultats et donnez 2 exemples?",
+    a: "Elle consiste à évaluer la performance de façon chiffrable (ex 1) quantitative, ex 2) évaluation par objectifs)."
+  },{
+    q: "Définissez la méthode d'évaluation basée sur les comportements et donnez 2 exemples?",
+    a: "Cette méthode cible plutôt comment et non le pourquoi autrement dit on ne cherche pas à quantifier ou à qualifier la performance d'un employé mais plutôt à évaluer la façon dont l'employé accomplit le travail (ex : échelle graphique de notation, échelle de comportements ancrés, échelle d'observation des comportements, liste de contrôle)."
+  },{
+    q: "Expliquez le processus d'évaluation par objectif?",
+    a: "Le processus d'évaluation par objectif comporte 3 grandes étapes : 1) cibler les zones de résultats clés, 2) formuler un/des objectifs, 3) Déterminer les indicateurs de performance clés."
+  },{
+    q: "Qu'est-ce que l'étape ‘’cibler les zones de résultats clés’’?",
+    a: "Il s'agit d'identifier les domaines où l'on s'attends à un investissement marqué de la part des employés."
+  },{
+    q: "Qu'est-ce que l'étape ‘’Formuler un/des objectifs’’?",
+    a: "À partir des résultats clés il est possible de dégager des objectifs (ex : ce qui doit être accompli) pour que les employés puissent atteindre le niveau de performance attendus."
+  },{
+    q: "Qu'est-ce que l'étape ‘’Déterminer les indicateurs de performance clés’’?",
+    a: "Pour chacun des objectifs fixés ces indicateurs permettent d'évaluer le plus précisément possible l'atteinte des objectifs ou d'en suivre la progression."
+  },{
+    q: "Vrai ou faux; Les méthodes d'évaluation par objectif sont un processus dans lequel l'employé ne participe pas à élaborer son objectif de performance?",
+    a: "Faux il participe activement et conjointement à élaborer ses objectifs de performance."
+  },{
+    q: "Vrai ou faux; un des inconvénients de la méthode d'évaluation par objectif c'est que l'employé risque de concentrer ses efforts sur les objectifs à atteindre et d'ignorer les autres aspects de son travail?",
+    a: "Vrai."
+  },{
+    q: "Vrai ou faux; la méthode d'évaluation par objectif ne permet pas d'aligner les objectifs individuels et organisationnels?",
+    a: "Faux l'avantage de cette méthode est qu'elle permet un tel alignement."
+  },{
+    q: "Vrai ou faux; la méthode d'évaluation par objectif favorise l'accord entre l'évaluateur et l'évalué?",
+    a: "Vrai."
+  },{
+    q: "Vrai ou faux; les échelles à comportement ancrées souffrent parfois de plus de problèmes de validité et de fidélité que les échelles graphiques de notation?",
+    a: "Faux ce sont des échelles graphiques de notation qui entraînent plus de problèmes."
+  },{
+    q: "Vrai ou faux; les échelles d'observation de comportements sont moins sujettes aux billets d'évaluation que les échelles à comportement ancrées et de notation?",
+    a: "Vrai."
+  },{
+    q: "En quoi consiste la méthode la plus courante, la méthode d'évaluation par échelle graphique de notation?",
+    a: "Consiste à présenter une série de critères de performance et demande d'évaluer ce dernier sur une échelle de nature quantitative (ex : cotes chiffrées) ou qualitative (ex : cotes nominatives)."
+  },{
+    q: "Nomme 2 avantages et 2 inconvénients de la méthode d'évaluation par échelle graphique de notation?",
+    a: "Avantages : simple à utiliser et économique à développer. Désavantage : critères sont souvent mal définis (ex : la notation de leadership ou de collaboration) et propice à la subjectivité et aux biais d'évaluation (ex : quelle est la différence entre satisfaisant et très satisfaisant?) Entraînant parfois des problèmes de validité et fidélité."
+  },{
+    q: "Définissez les échelles à comportement ancrés?",
+    a: "Et elles sont des méthodes d'évaluation qui ont été développées pour remédier aux problèmes de validité et de fidélité des échelles de notation. Elle présente description comportementale pour chaque niveau de performance (ancre) d'une dimension."
+  },{
+    q: "Nomme les avantages et désavantage des échelles à comportement ancrées?",
+    a: "Avantages : elles décrivent bien les comportements observables pour chaque encre d'évaluation, favorisant ainsi la fidélité et la validité ainsi que la précision de la rétroaction. Désavantages : exigeant pour l'organisation externe de développement."
+  },{
+    q: "Définissez les échelles d'observation de comportements?",
+    a: "Présentent une liste de comportements précis et observables qui seront évalués en termes de fréquence d'adoption."
+  },{
+    q: "Nomme les avantages et désavantages des échelles d'observation de comportements?",
+    a: "Avantages : simple à développer et repose sur des comportements précis donc moins sujette aux biais d'évaluation. Des avantages : exigeant pour l'évaluateur en termes d'observation et des comportements."
+  },{
+    q: "Nomme les avantages et désavantages des listes de contrôle?",
+    a: "Avantages : permet d'évaluer la performance dans les postes où un nombre défini de tâches doivent être accomplis pour réaliser le travail, et rehausse l'activité en plaçant l'évaluateur davantage dans un rôle d'observateur. Des avantages : moins utile pour évaluer les dimensions du travail liées à la performance contextuelle ou adaptative."
+  },{
+    q: "Que signifi le mot ‘’biais’’?",
+    a: "Dans le cours ADM4020, le mot biais (souvent appelé biais d'évaluation ou erreur de jugement) désigne une distorsion, un piège perceptuel ou une erreur de jugement (souvent inconsciente) qui vient fausser l'évaluation réelle de la performance d'un employé. Au lieu d'évaluer l'employé de manière neutre et objective en se basant sur des faits observés, le gestionnaire (ou l'évaluateur) laisse sa perception être teintée par des raccourcis mentaux, des émotions, des préjugés ou des habitudes."
+  },{
+    q: "Nomme les avantages et désavantages de la méthode d'évaluation par compétence?",
+    a: "Avantages : favorise l'alignement avec la stratégie et la culture organisationnelle mais également entre différentes fonctions RH. Désavantages : lourd a gérer pour l'organisation."
+  },{
+    q: "En quoi consiste la méthode de la distribution forcée?",
+    a: "Consiste à classer la performance des employés en différents groupes selon des proportions prédéfinies qui suivent une courbe normale."
+  },{
+    q: "Nomme les avantages et désavantages de la méthode de la distribution forcée?",
+    a: "Avantages : permet de comptez certains biais des évaluateurs (ex : clémence, tendance centrale), et facilite la prise de décisions RH. Désavantages : suppose que la performance des employés a distribué selon une courbe normale, il peut donner cours à certaines manipulations des évaluateurs et augmenter l'intention de quitter des employés."
+  },{
+    q: "Nomme les avantages et désavantages de l'approche par matrice?",
+    a: "Avantages : centre les discussions sur l'amélioration de la performance et les forces des individus. Désavantages : méthode peu précise dont le succès repose sur la capacité d'évaluation d'offrir une rétroaction aux évalués."
+  },{
+    q: "?",
+    a: "."
+  }
+
+];let cards = [...originalCards];
+const markedCards = new Set();
+
+function updateErrorCount() {
+  const count = markedCards.size;
+  document.getElementById('errorBadge').textContent = count;
+  document.getElementById('modalErrorCount').textContent = count;
+
+  const total = cards.length;
+  const successful = Math.max(0, total - count);
+  const percentage = total ? Math.round((successful / total) * 100) : 0;
+  document.getElementById('successPercent').textContent = percentage + ' %';
+  document.getElementById('successFill').style.width = percentage + '%';
+  document.querySelector('.success-track').setAttribute('aria-valuenow', percentage);
+  document.getElementById('successDetails').textContent =
+    `${count} carte${count === 1 ? '' : 's'} en rouge · ${successful} carte${successful === 1 ? '' : 's'} réussie${successful === 1 ? '' : 's'} sur ${total}`;
+}
+
+function createCardFace(item, isErrorList = false) {
+  const wrap = document.createElement('div');
+  if (isErrorList) {
+    wrap.className = 'error-card';
+    wrap.innerHTML = `<button class="unmark-btn" type="button" aria-label="Retirer cette carte des cartes d'erreurs" title="Remettre cette carte en normal"></button>
+      <strong>${escapeHtml(item.q)}</strong><div class="answer">${escapeHtml(item.a)}</div>`;
+    wrap.querySelector('.unmark-btn').addEventListener('click', (event) => {
+      event.stopPropagation();
+      markedCards.delete(item);
+      render();
+      renderErrorCards();
+    });
+    wrap.addEventListener('click', () => wrap.classList.toggle('flipped'));
+    return wrap;
+  }
+
+  wrap.className = 'card-wrap' + (markedCards.has(item) ? ' marked' : '');
+  wrap.innerHTML = `
+    <div class="card">
+      <div class="face front">
+        <div>${escapeHtml(item.q)}</div>
+        <div class="hint">Clique pour voir la réponse 👆</div>
+      </div>
+      <div class="face back">
+        <div>${escapeHtml(item.a)}</div>
+        <div class="hint">Clique pour revenir à la question 👆</div>
+      </div>
+    </div>`;
+
+  const markBtn = document.createElement('button');
+  markBtn.className = 'mark-btn' + (markedCards.has(item) ? ' marked' : '');
+  markBtn.type = 'button';
+  markBtn.setAttribute('aria-label', markedCards.has(item) ? 'Retirer des cartes d’erreurs' : 'Marquer cette question comme erreur');
+  markBtn.title = markedCards.has(item) ? 'Carte marquée comme erreur' : 'Marquer comme erreur';
+  wrap.appendChild(markBtn);
+
+  markBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (markedCards.has(item)) markedCards.delete(item);
+    else markedCards.add(item);
+    render();
+    renderErrorCards();
+  });
+
+  wrap.addEventListener('click', () => {
+    wrap.querySelector('.card').classList.toggle('flipped');
+  });
+  return wrap;
+}
+
+function render() {
+  const container = document.getElementById('cards');
+  container.innerHTML = '';
+  document.getElementById('count').textContent = cards.length;
+  cards.forEach(item => container.appendChild(createCardFace(item)));
+  updateErrorCount();
+}
+
+function renderErrorCards() {
+  const container = document.getElementById('errorCardsList');
+  container.innerHTML = '';
+  const errorCards = cards.filter(item => markedCards.has(item));
+  document.getElementById('modalErrorCount').textContent = errorCards.length;
+  document.getElementById('errorBadge').textContent = errorCards.length;
+  if (errorCards.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-errors';
+    empty.textContent = 'Aucune carte en rouge pour le moment. Clique sur le point rouge d’une carte pour l’ajouter ici.';
+    container.appendChild(empty);
+    return;
+  }
+  errorCards.forEach(item => container.appendChild(createCardFace(item, true)));
+}
+
+const errorModalOverlay = document.getElementById('errorModalOverlay');
+document.getElementById('errorBubble').addEventListener('click', () => {
+  renderErrorCards();
+  errorModalOverlay.classList.add('open');
+});
+document.getElementById('closeErrorModal').addEventListener('click', () => errorModalOverlay.classList.remove('open'));
+errorModalOverlay.addEventListener('click', event => {
+  if (event.target === errorModalOverlay) errorModalOverlay.classList.remove('open');
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') errorModalOverlay.classList.remove('open');
+});
+
+function escapeHtml(value) {
+  return value
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#039;");
+}
+
+document.getElementById('shuffleBtn').addEventListener('click', () => {
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+  render();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+});
+
+render();
+</script>
+</body>
+</html>
